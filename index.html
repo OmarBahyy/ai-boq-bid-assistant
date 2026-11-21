@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI BoQ & Bid Assistant — GAEB .X83 Kalkulations- & Risiko-Analyse</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen antialiased">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="inline-flex items-center rounded-md bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">Generalunternehmer / Bieter</span>
+          <span class="text-xs text-slate-500">GAEB DA XML (.X83) • VOB/B & § 2 Nachtragsradar</span>
+        </div>
+        <h1 class="text-2xl font-bold tracking-tight text-slate-900 mt-1">🏗️ AI BoQ & Bid Assistant</h1>
+        <p class="text-sm text-slate-600">Schnelle Fehler-, Widerspruchs- & Risikoanalyse für Leistungsverzeichnisse vor Angebotsabgabe</p>
+      </div>
+      <div class="flex items-center gap-2 text-xs text-slate-600 bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-xs">
+        <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+        <span>Demo-Modus aktiv (Claude Haiku + Sonnet Ready)</span>
+      </div>
+    </div>
+
+    <!-- Zone 1: Upload & Quick Preset Bar -->
+    <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div class="flex flex-wrap items-center gap-3">
+        <label class="cursor-pointer inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 transition">
+          <span>📂 .X83 / .XML hochladen</span>
+          <input id="fileInput" type="file" accept=".x81,.x82,.x83,.x84,.x85,.x86,.xml" class="hidden" />
+        </label>
+        <button id="loadDemoBtn" class="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-amber-400 transition">
+          ⚡ Demo-LV laden (8209.003)
+        </button>
+        <span id="activeFileLabel" class="text-sm font-medium text-slate-700">Projekt: 8209.003 — Maschinentechnik & Anlagenbau</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <input id="apiKeyInput" type="password" placeholder="Optional: sk-ant-... API Key" class="rounded-lg border border-slate-300 px-3 py-2 text-sm w-60 focus:outline-none focus:ring-2 focus:ring-amber-500" />
+        <button id="runAnalysisBtn" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 transition">
+          Analysieren
+        </button>
+      </div>
+    </div>
+
+    <!-- 4 KPI Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+        <p class="text-xs font-medium uppercase tracking-wider text-slate-500">Positionen gesamt</p>
+        <p id="kpiTotal" class="text-3xl font-bold text-slate-900 mt-1">148</p>
+        <p id="kpiFormat" class="text-xs text-slate-500 mt-1">GAEB XML (.X83) • 12 Bedarfspos.</p>
+      </div>
+      <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+        <p class="text-xs font-medium uppercase tracking-wider text-rose-600">Fehler & Widersprüche</p>
+        <p id="kpiErrors" class="text-3xl font-bold text-rose-600 mt-1">5</p>
+        <p class="text-xs text-slate-500 mt-1">Kurz-/Langtext, Einheiten & Maßtoleranzen</p>
+      </div>
+      <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+        <p class="text-xs font-medium uppercase tracking-wider text-amber-600">Kritische Risiken (HIGH)</p>
+        <p id="kpiHigh" class="text-3xl font-bold text-amber-600 mt-1">9</p>
+        <p class="text-xs text-slate-500 mt-1">VOB/B-Nebenleistungen & Schnittstellen</p>
+      </div>
+      <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+        <p class="text-xs font-medium uppercase tracking-wider text-indigo-600">Nachtragspotenzial</p>
+        <p id="kpiNachtrag" class="text-3xl font-bold text-indigo-600 mt-1">7</p>
+        <p class="text-xs text-slate-500 mt-1">Lücken & Mengenrisiken nach § 2 VOB/B</p>
+      </div>
+    </div>
+
+    <!-- Zone 2: 3 Focused Tabs -->
+    <div class="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
+      <div class="border-b border-slate-200 px-4 bg-slate-50/70 flex flex-wrap gap-2 pt-3">
+        <button data-tab="tab1" class="tab-btn px-4 py-2.5 text-sm font-semibold rounded-t-lg bg-white text-slate-900 border-t border-x border-slate-200 -mb-px">
+          🚨 1. Red Flags & Fehler
+        </button>
+        <button data-tab="tab2" class="tab-btn px-4 py-2.5 text-sm font-medium rounded-t-lg text-slate-600 hover:text-slate-900">
+          📋 2. Bid Strategy & Gewerke
+        </button>
+        <button data-tab="tab3" class="tab-btn px-4 py-2.5 text-sm font-medium rounded-t-lg text-slate-600 hover:text-slate-900">
+          🎛️ 3. What-If Simulator
+        </button>
+      </div>
+
+      <!-- TAB 1: Red Flags & Errors -->
+      <div id="tab1" class="tab-panel p-5 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="flex flex-wrap gap-2" id="filterChips">
+            <button data-filter="ALL" class="chip-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-900 text-white">Alle Befunde</button>
+            <button data-filter="FEHLER_WIDERSPRUCH" class="chip-btn px-3 py-1.5 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200">Fehler / Widersprüche</button>
+            <button data-filter="VOB_RISIKOFALLE" class="chip-btn px-3 py-1.5 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">VOB-Risikofalle</button>
+            <button data-filter="NACHTRAGSPOTENZIAL" class="chip-btn px-3 py-1.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">Nachtragspotenzial</button>
+          </div>
+          <button id="exportBtn" class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 transition">
+            ⬇️ Bieterfragen (.TXT) exportieren
+          </button>
+        </div>
+
+        <div class="overflow-x-auto border border-slate-200 rounded-lg">
+          <table class="min-w-full divide-y divide-slate-200 text-sm">
+            <thead class="bg-slate-50 text-left text-xs font-semibold text-slate-600 uppercase">
+              <tr>
+                <th class="px-3 py-2.5">OZ</th>
+                <th class="px-3 py-2.5">Stufe</th>
+                <th class="px-3 py-2.5">Befund-Typ</th>
+                <th class="px-3 py-2.5">Gewerk</th>
+                <th class="px-3 py-2.5">Begründung</th>
+                <th class="px-3 py-2.5">Bieterfrage (AG)</th>
+              </tr>
+            </thead>
+            <tbody id="flagsTableBody" class="divide-y divide-slate-100 bg-white"></tbody>
+          </table>
+        </div>
+
+        <!-- Proof Inspector -->
+        <div class="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-700">🔍 Original-LV-Text prüfen (Kurztext vs. Langtext)</span>
+            <select id="ozInspectorSelect" class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-800"></select>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+            <div class="bg-white border border-slate-200 rounded-lg p-3">
+              <p class="font-semibold text-slate-500 mb-1">KURZTEXT</p>
+              <p id="proofKurztext" class="text-slate-800 leading-relaxed"></p>
+            </div>
+            <div class="bg-white border border-slate-200 rounded-lg p-3">
+              <p class="font-semibold text-slate-500 mb-1">LANGTEXT (AUSZUG)</p>
+              <p id="proofLangtext" class="text-slate-800 leading-relaxed"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: Bid Strategy & Trades -->
+      <div id="tab2" class="tab-panel hidden p-5">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div class="lg:col-span-7 space-y-4">
+            <div class="border border-slate-200 rounded-lg p-4 bg-slate-50/50">
+              <h3 class="text-sm font-bold text-rose-700 mb-1.5">1. Kritische Fehler & VOB-Margenfallen</h3>
+              <ul class="list-disc pl-5 text-sm text-slate-700 space-y-1.5">
+                <li><strong>OZ 01.01.1 (Baustelleneinrichtung psch):</strong> Kran-, Hebezeug- und Gerüstkosten sowie Schutz von Behältern/Aggregaten werden in Einheitspreise verlagert — Wasseranschluss wird ausdrücklich <em>nicht garantiert</em>.</li>
+                <li><strong>OZ 1.1.20 / 1.1.30 (Stützenhöhen):</strong> Abweichungen zwischen Kurztext-Höhenangaben und Langtext-Standardwerten erzeugen Kalkulations- und Nachtragsrisiko.</li>
+                <li><strong>OZ 14c / Flächenheizung:</strong> Unplausible Maßangaben/Toleranzen im LV vor Angebotsabgabe klären, um Nacharbeiten auf eigene Kosten zu vermeiden.</li>
+              </ul>
+            </div>
+            <div class="border border-slate-200 rounded-lg p-4 bg-slate-50/50">
+              <h3 class="text-sm font-bold text-indigo-700 mb-1.5">2. Nachtragspotenzial (§ 2 VOB/B) & Strategie</h3>
+              <ul class="list-disc pl-5 text-sm text-slate-700 space-y-1.5">
+                <li><strong>Pauschal- & Bedarfspositionen:</strong> Bei unklaren Mengen oder fehlender Wasserversorgung saubere Nachtragsgrundlagen und dokumentierte Bedenkenhinweise (§ 4 Abs. 3 VOB/B) einplanen.</li>
+                <li><strong>Schnittstellen prüfen:</strong> Vorleistungen anderer Gewerke (Baumeisterarbeiten, Strom/Wasser, Durchbrüche) explizit gegenprüfen.</li>
+              </ul>
+            </div>
+            <div class="border border-slate-200 rounded-lg p-4 bg-slate-50/50">
+              <h3 class="text-sm font-bold text-slate-900 mb-1.5">3. Nachunternehmer-Einkauf (RfQ-Priorität)</h3>
+              <p class="text-sm text-slate-700">Sofortige NU-Anfragen bündeln für <strong>Anlagenbau/TGA</strong>, <strong>Rohrleitungsbau</strong>, <strong>Tiefbau/Erdbau</strong> und <strong>Elektro</strong>, um verbindliche Marktpreise vor Ablauf der Angebotsfrist zu sichern.</p>
+            </div>
+          </div>
+          <div class="lg:col-span-5 flex flex-col justify-between border border-slate-200 rounded-lg p-4 bg-white">
+            <div>
+              <h3 class="text-sm font-bold text-slate-900 mb-1">Positionen nach Gewerk (RfQ-Split)</h3>
+              <p class="text-xs text-slate-500 mb-4">Verteilung der erkannten Gewerke im Leistungsverzeichnis</p>
+            </div>
+            <div class="relative h-64">
+              <canvas id="tradeChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: What-If Simulator -->
+      <div id="tab3" class="tab-panel hidden p-5 space-y-5">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-slate-50 border border-slate-200 rounded-lg p-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Basis-Angebotssumme (€)</label>
+            <input id="simBaseBid" type="number" value="500000" step="50000" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Materialpreis-Änderung: <span id="matVal" class="text-amber-700 font-bold">+5%</span></label>
+            <input id="simMat" type="range" min="-10" max="30" value="5" class="w-full accent-amber-600 mt-2" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Risikopuffer HIGH-Pos.: <span id="riskVal" class="text-rose-700 font-bold">+8%</span></label>
+            <input id="simRisk" type="range" min="0" max="25" value="8" class="w-full accent-rose-600 mt-2" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Abruf Bedarfspos.: <span id="optVal" class="text-indigo-700 font-bold">30%</span></label>
+            <input id="simOpt" type="range" min="0" max="100" value="30" class="w-full accent-indigo-600 mt-2" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="border border-slate-200 rounded-xl p-4 bg-white">
+            <p class="text-xs font-semibold text-slate-500 uppercase">Angepasste Angebotssumme</p>
+            <p id="simAdjBid" class="text-2xl font-bold text-slate-900 mt-1">514.750 €</p>
+            <p id="simDelta" class="text-xs font-semibold text-emerald-700 mt-1">+3,0% gegenüber Basis</p>
+          </div>
+          <div class="border border-slate-200 rounded-xl p-4 bg-white">
+            <p class="text-xs font-semibold text-slate-500 uppercase">Material- & Risikopuffer</p>
+            <p id="simBuffer" class="text-2xl font-bold text-amber-700 mt-1">+13.500 €</p>
+            <p class="text-xs text-slate-500 mt-1">Schutz vor Preis- & VOB-Risiken</p>
+          </div>
+          <div class="border border-slate-200 rounded-xl p-4 bg-white">
+            <p class="text-xs font-semibold text-slate-500 uppercase">Potenzial Bedarfspositionen</p>
+            <p id="simOptImpact" class="text-2xl font-bold text-indigo-700 mt-1">+1.250 €</p>
+            <p class="text-xs text-slate-500 mt-1">Erwarteter Abruf optionaler Pos.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const DEMO_FINDINGS = [
+      {
+        oz: "01.01.1",
+        severity: "HIGH",
+        issue_type: "VOB_RISIKOFALLE",
+        trade: "Baustelleneinrichtung",
+        reason: "Kran-, Gerüst- & Schutzleistungen in EP; Wasseranschluss nicht garantiert.",
+        bieterfrage: "Wird der Bauwasseranschluss bauseits bereitgestellt oder als gesonderte Position vergütet?",
+        kurztext: "Baustelleneinrichtung - Montagepläne - Inbetriebnahme (psch)",
+        langtext: "Vollständige Einrichtung der Baustelle, vorhalten und räumen. Hebezeuge, Montage-/Schutzgerüste und Schutz von Behältern/Aggregaten sind einzukalkulieren. Das Vorhandensein eines Wasseranschlusses kann zum jetzigen Zeitpunkt nicht garantiert werden."
+      },
+      {
+        oz: "1.1.20",
+        severity: "HIGH",
+        issue_type: "FEHLER_WIDERSPRUCH",
+        trade: "Rohbau/Beton",
+        reason: "Kurztext nennt ca. 8,04 m Höhe, Langtext nennt ca. 7,60 m Stützenhöhe.",
+        bieterfrage: "Welche Stützenhöhe ist verbindlich maßgebend: 8,04 m (Kurztext) oder ca. 7,60 m (Langtext)?",
+        kurztext: "FT-Stütze, H=ca. 8,04m, 40x50cm, SB2 mit Konsole",
+        langtext: "Stütze als Stb.-Fertigteil für Köcherfundamente, mit Konsolausbildung... Beton: C30/37, XC1. Stützenhöhe: ca. 7,60 m, Querschnitt: 40x50 cm, Oberfläche: SB2."
+      },
+      {
+        oz: "02.04.10",
+        severity: "HIGH",
+        issue_type: "NACHTRAGSPOTENZIAL",
+        trade: "Tiefbau/Erdbau",
+        reason: "Fehlende Zuordnungswerte (LAGA / Deponieklasse) für Aushubmaterial.",
+        bieterfrage: "Liegen Bodengutachten und LAGA-Einstufungen für die Entsorgungsklassen vor Angebotsabgabe vor?",
+        kurztext: "Rohrgrabenaushub und Abfuhr / Entsorgung (m³)",
+        langtext: "Ausheben des Rohrgrabens, Zwischenlagerung sowie Laden, Transport und Entsorgung des anfallenden Aushubs gemäß den einschlägigen Vorschriften."
+      },
+      {
+        oz: "03.01.5",
+        severity: "MEDIUM",
+        issue_type: "NACHTRAGSPOTENZIAL",
+        trade: "Anlagenbau/TGA",
+        reason: "Schnittstelle zu bauseitigen Durchbrüchen und Elektroanschlüssen unklar.",
+        bieterfrage: "Erfolgen Kernbohrungen und Zuleitungen bis zum Aggregat bauseits oder im Leistungsumfang des AN?",
+        kurztext: "Aggregateinheit liefern, einbringen und anschließen (Stk)",
+        langtext: "Liefern, Einbringen an den Aufstellungsort, Ausrichten und betriebsbereites Anschließen der Aggregateinheit inkl. Funktionsprüfung."
+      },
+      {
+        oz: "04.02.3",
+        severity: "MEDIUM",
+        issue_type: "FEHLER_WIDERSPRUCH",
+        trade: "Elektro",
+        reason: "Einheit 'psch' bei variabler Kabeltrassenlänge erhöht Mengenrisiko.",
+        bieterfrage: "Kann die Kabeltrasse statt pauschal ('psch') nach tatsächlichem Aufmaß in Metern (m) abgerechnet werden?",
+        kurztext: "Kabeltrasse und Steuerleitung verlegen (psch)",
+        langtext: "Verlegen von Steuer- und Versorgungsleitungen inkl. Befestigungsmaterial und Kennzeichnung über die gesamte Trasse."
+      }
+    ];
+
+    let activeFilter = "ALL";
+    let currentFindings = [...DEMO_FINDINGS];
+
+    function badgeHtml(sev) {
+      if (sev === "HIGH") return '<span class="inline-flex rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-800">HIGH</span>';
+      return '<span class="inline-flex rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">MEDIUM</span>';
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById("flagsTableBody");
+      const filtered = activeFilter === "ALL"
+        ? currentFindings
+        : currentFindings.filter(f => f.issue_type === activeFilter);
+
+      tbody.innerHTML = filtered.map(f => `
+        <tr class="hover:bg-slate-50/80">
+          <td class="px-3 py-2.5 font-mono text-xs font-semibold text-slate-900 whitespace-nowrap">${f.oz}</td>
+          <td class="px-3 py-2.5 whitespace-nowrap">${badgeHtml(f.severity)}</td>
+          <td class="px-3 py-2.5 text-xs font-medium text-slate-700 whitespace-nowrap">${f.issue_type}</td>
+          <td class="px-3 py-2.5 text-xs text-slate-600 whitespace-nowrap">${f.trade}</td>
+          <td class="px-3 py-2.5 text-xs text-slate-800">${f.reason}</td>
+          <td class="px-3 py-2.5 text-xs text-slate-700">${f.bieterfrage || "-"}</td>
+        </tr>
+      `).join("");
+
+      const select = document.getElementById("ozInspectorSelect");
+      select.innerHTML = filtered.map(f => `<option value="${f.oz}">OZ ${f.oz} — ${f.kurztext.slice(0, 45)}</option>`).join("");
+      updateProof(filtered[0]);
+    }
+
+    function updateProof(item) {
+      document.getElementById("proofKurztext").textContent = item ? item.kurztext : "Keine Position ausgewählt.";
+      document.getElementById("proofLangtext").textContent = item ? item.langtext : "Keine Position ausgewählt.";
+    }
+
+    document.getElementById("ozInspectorSelect").addEventListener("change", (e) => {
+      const found = currentFindings.find(f => f.oz === e.target.value);
+      updateProof(found);
+    });
+
+    document.querySelectorAll(".chip-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        activeFilter = btn.dataset.filter;
+        document.querySelectorAll(".chip-btn").forEach(b => b.classList.remove("ring-2", "ring-slate-900"));
+        btn.classList.add("ring-2", "ring-slate-900");
+        renderTable();
+      });
+    });
+
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const target = btn.dataset.tab;
+        document.querySelectorAll(".tab-panel").forEach(p => p.classList.add("hidden"));
+        document.getElementById(target).classList.remove("hidden");
+        document.querySelectorAll(".tab-btn").forEach(b => {
+          b.className = "tab-btn px-4 py-2.5 text-sm font-medium rounded-t-lg text-slate-600 hover:text-slate-900";
+        });
+        btn.className = "tab-btn px-4 py-2.5 text-sm font-semibold rounded-t-lg bg-white text-slate-900 border-t border-x border-slate-200 -mb-px";
+      });
+    });
+
+    document.getElementById("exportBtn").addEventListener("click", () => {
+      const lines = currentFindings
+        .filter(f => f.bieterfrage)
+        .map(f => `OZ ${f.oz} [${f.issue_type}]: ${f.bieterfrage}\n  -> Begründung: ${f.reason}`);
+      const blob = new Blob([lines.join("\n\n")], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "Bieterfragen_Export.txt";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // Quick client-side XML item count preview when user selects an .X83 file
+    document.getElementById("fileInput").addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      document.getElementById("activeFileLabel").textContent = `Datei: ${file.name}`;
+      const text = await file.text();
+      const doc = new DOMParser().parseFromString(text, "text/xml");
+      const items = doc.getElementsByTagName("Item");
+      if (items.length > 0) {
+        document.getElementById("kpiTotal").textContent = items.length;
+        document.getElementById("kpiFormat").textContent = `${file.name} • ${items.length} Positionen geparst`;
+      }
+    });
+
+    document.getElementById("runAnalysisBtn").addEventListener("click", () => {
+      alert("Analyse abgeschlossen! In der Python-Version (app.py) ruft dieser Button Claude Haiku & Sonnet über die Anthropic API auf.");
+    });
+
+    document.getElementById("loadDemoBtn").addEventListener("click", () => {
+      currentFindings = [...DEMO_FINDINGS];
+      document.getElementById("activeFileLabel").textContent = "Projekt: 8209.003 — Maschinentechnik & Anlagenbau";
+      document.getElementById("kpiTotal").textContent = "148";
+      renderTable();
+    });
+
+    // What-If Simulator
+    function updateSimulator() {
+      const base = parseFloat(document.getElementById("simBaseBid").value) || 0;
+      const mat = parseFloat(document.getElementById("simMat").value) || 0;
+      const risk = parseFloat(document.getElementById("simRisk").value) || 0;
+      const opt = parseFloat(document.getElementById("simOpt").value) || 0;
+
+      document.getElementById("matVal").textContent = `${mat >= 0 ? "+" : ""}${mat}%`;
+      document.getElementById("riskVal").textContent = `+${risk}%`;
+      document.getElementById("optVal").textContent = `${opt}%`;
+
+      const matImpact = base * 0.45 * (mat / 100);
+      const riskImpact = base * 0.12 * (risk / 100);
+      const optImpact = base * 0.08 * (opt / 100);
+      const adj = base + matImpact + riskImpact + optImpact;
+      const pct = base > 0 ? (((adj - base) / base) * 100).toFixed(1) : "0.0";
+
+      const fmt = (n) => `${Math.round(n).toLocaleString("de-DE")} €`;
+      document.getElementById("simAdjBid").textContent = fmt(adj);
+      document.getElementById("simDelta").textContent = `${adj >= base ? "+" : ""}${pct}% gegenüber Basis`;
+      document.getElementById("simBuffer").textContent = `${matImpact + riskImpact >= 0 ? "+" : ""}${fmt(matImpact + riskImpact)}`;
+      document.getElementById("simOptImpact").textContent = `+${fmt(optImpact)}`;
+    }
+
+    ["simBaseBid", "simMat", "simRisk", "simOpt"].forEach(id => {
+      document.getElementById(id).addEventListener("input", updateSimulator);
+    });
+
+    // Chart.js Trade Distribution
+    new Chart(document.getElementById("tradeChart"), {
+      type: "bar",
+      data: {
+        labels: ["TGA / Anlagen", "Rohrleitung", "Tiefbau", "BE / Allgemein", "Elektro"],
+        datasets: [{
+          label: "Positionen",
+          data: [46, 38, 31, 18, 15],
+          backgroundColor: "#f59e0b",
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true } }
+      }
+    });
+
+    renderTable();
+    updateSimulator();
+  </script>
+</body>
+</html>
