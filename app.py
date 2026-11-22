@@ -15,7 +15,7 @@ from pypdf import PdfReader
 # CONFIGURATION
 # ==============================================================================
 HAIKU_MODEL = "claude-haiku-4-5-20251001"
-SONNET_MODEL = "claude-sonnet-4-5-20250929"
+SONNET_MODEL = "claude-sonnet-4-6"
 BATCH_SIZE = 35
 MAX_CONCURRENT_REQUESTS = 5
 
